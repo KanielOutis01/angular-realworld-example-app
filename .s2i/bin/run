@@ -1,11 +1,5 @@
 #!/bin/bash
 set -e
 
-# Load S2I environment
-source /usr/libexec/s2i/env
-source /usr/libexec/s2i/generate-container-user
-
-echo "---> Starting Angular app"
-echo "NODE_ENV=${NODE_ENV}"
-
+echo "Starting Angular app"
 npm start -- --host 0.0.0.0 --port 4200
