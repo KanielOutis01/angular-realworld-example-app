@@ -75,6 +75,7 @@ export class FollowButtonComponent {
         },
         error: () => {
           this.isSubmitting.set(false);
+          
         },
       });
   }
