@@ -18,6 +18,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+
       # 2️⃣ Generate tag
       - name: Generate Tag
         run: |
