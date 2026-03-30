@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  APP_NAME: angular-app
+  APP_NAME: s2i-angular
   NAMESPACE: poc-01-dev
 
 jobs:
