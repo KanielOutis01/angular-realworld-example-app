@@ -26,6 +26,13 @@ jobs:
           TAG=${BUILD_NUMBER}-${COMMIT_HASH}
           echo "TAG=$TAG" >> $GITHUB_ENV
 
+      - name: Install oc CLI
+        run: |
+          curl -LO https://mirror.openshift.com/pub/openshift-v4/clients/oc/latest/linux/oc.tar.gz
+          tar -xvf oc.tar.gz
+          sudo mv oc /usr/local/bin/
+          oc version    
+
       # 3️⃣ Login to OpenShift
       - name: Login to OpenShift
         run: |
