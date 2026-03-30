@@ -1,48 +1,65 @@
-name: Build and Release
+name: Angular CI/CD (S2I - No Docker)
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+
+env:
+  APP_NAME: angular-app
+  NAMESPACE: poc-01-dev
 
 jobs:
-  build-and-release:
+  build-deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
+      # 1️⃣ Checkout
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-
-      - run: bun install
-
-      - run: bun run build
-
-      - name: Zip build
-        run: cd dist/angular-conduit/browser && zip -r ../../../build.zip .
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: build-${{ github.run_number }}
-          files: build.zip
-
-      - name: Cleanup old releases
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 2️⃣ Generate tag
+      - name: Generate Tag
         run: |
-          releases=$(gh release list --json tagName,createdAt --limit 100)
-          cutoff=$(date -d '7 days ago' -Iseconds)
+          BUILD_NUMBER=${{ github.run_number }}
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          TAG=${BUILD_NUMBER}-${COMMIT_HASH}
+          echo "TAG=$TAG" >> $GITHUB_ENV
 
-          echo "$releases" | jq -r '
-            to_entries
-            | .[]
-            | select(.key >= 5)
-            | select(.value.createdAt < "'"$cutoff"'")
-            | .value.tagName
-          ' | while read -r tag; do
-            echo "Deleting release: $tag"
-            gh release delete "$tag" --cleanup-tag -y
-          done
+      # 3️⃣ Login to OpenShift
+      - name: Login to OpenShift
+        run: |
+          oc login ${{ secrets.OPENSHIFT_SERVER }} \
+            --token=${{ secrets.OPENSHIFT_TOKEN }} \
+            --insecure-skip-tls-verify=true
+
+      # 4️⃣ Switch project
+      - name: Select Project
+        run: |
+          oc project $NAMESPACE
+
+      # 5️⃣ Start S2I Build
+      - name: Trigger Build
+        run: |
+          oc start-build $APP_NAME --follow
+
+      # 6️⃣ Tag Image (buildNumber + commitHash)
+      - name: Tag Image
+        run: |
+          oc tag $APP_NAME:latest $APP_NAME:$TAG
+
+      # 7️⃣ Update Deployment to new tag
+      - name: Deploy New Image
+        run: |
+          oc set image deployment/$APP_NAME \
+            $APP_NAME=image-registry.openshift-image-registry.svc:5000/$NAMESPACE/$APP_NAME:$TAG
+
+      # 8️⃣ Rollout restart (refresh route)
+      - name: Restart Deployment
+        run: |
+          oc rollout restart deployment/$APP_NAME
+
+      # 9️⃣ Wait for rollout
+      - name: Verify Deployment
+        run: |
+          oc rollout status deployment/$APP_NAME
