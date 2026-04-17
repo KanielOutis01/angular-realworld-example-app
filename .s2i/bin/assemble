@@ -10,5 +10,6 @@ npm install
 echo "---> Build Angular app"
 npm run build -- --configuration=${NODE_ENV:-development}
 
+
 echo "---> Fix permissions"
 fix-permissions /opt/app-root
