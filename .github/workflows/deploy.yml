@@ -1,93 +1,23 @@
-name: OpenShift S2I Build and Deploy
+name: Library_Pipeline_NODE
 
 on:
   push:
     branches:
       - main
 
-env:
-  APP_NAME: s2i-ui-45
-  NAMESPACE: s2i-poc-dev
-  BUILD_CONFIG: s2i-ui-45
-  IMAGE_STREAM: s2i-ui-45
-  BUILDER_IMAGE: openshift/nodejs:22-ubi9-minimal
-  OPENSHIFT_SERVER: https://api.rm1.0a51.p1.openshiftapps.com:6443
-
 jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+  ci:
+    uses: KanielOutis01/shared-libraries/.github/workflows/ci-template.yml@main
+    with:
+      app_name: s2i-ui-45
+      project_type: node
+    secrets: inherit
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - name: Generate Image Tag
-        run: |
-          SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
-          IMAGE_TAG=dev-${GITHUB_RUN_NUMBER}-${SHORT_SHA}
-          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-
-      - name: Install oc CLI
-        run: |
-          curl -LO https://mirror.openshift.com/pub/openshift-v4/clients/oc/latest/linux/oc.tar.gz
-          tar -xvf oc.tar.gz
-          sudo mv oc /usr/local/bin/
-
-      - name: Login to OpenShift
-        run: |
-          oc login $OPENSHIFT_SERVER \
-            --token=${{ secrets.OPENSHIFT_TOKEN }} \
-            --insecure-skip-tls-verify=true
-
-          oc project $NAMESPACE
-
-      - name: Ensure ImageStream
-        run: |
-          oc get is $IMAGE_STREAM || oc create is $IMAGE_STREAM
-
-      - name: Ensure BuildConfig
-        run: |
-          oc get bc $BUILD_CONFIG || oc new-build \
-            --name=$BUILD_CONFIG \
-            --image-stream=$BUILDER_IMAGE \
-            --binary=true \
-            --to=$IMAGE_STREAM:latest
-
-      - name: Start S2I Build
-        run: |
-          oc start-build $BUILD_CONFIG --from-dir=. --follow
-
-      - name: Tag Image
-        run: |
-          oc tag $IMAGE_STREAM:latest $IMAGE_STREAM:$IMAGE_TAG
-
-      - name: Ensure Deployment
-        run: |
-          oc get deployment $APP_NAME || oc new-app $IMAGE_STREAM:latest --name=$APP_NAME
-
-      - name: Update Deployment Image
-        run: |
-          oc set image deployment/$APP_NAME \
-            $APP_NAME=$IMAGE_STREAM:$IMAGE_TAG
-
-      - name: Verify Rollout
-        run: |
-          oc rollout status deployment/$APP_NAME
-
-      - name: Ensure Service
-        run: |
-          oc get svc $APP_NAME || oc expose deployment $APP_NAME \
-            --port=8080 --target-port=8080 --name=$APP_NAME
-
-      - name: Ensure Route (TLS Edge)
-        run: |
-          if ! oc get route $APP_NAME; then
-            oc create route edge $APP_NAME \
-              --service=$APP_NAME \
-              --port=8080
-          fi
-
-          oc patch route $APP_NAME \
-            -p '{"spec":{"tls":{"termination":"edge","insecureEdgeTerminationPolicy":"Redirect"}}}'
+  deploy:
+    needs: ci
+    uses: KanielOutis01/shared-libraries/.github/workflows/deploy-template.yml@main
+    with:
+      app_name: s2i-ui-45
+      namespace: s2i-poc-dev
+      project_type: node
+    secrets: inherit
