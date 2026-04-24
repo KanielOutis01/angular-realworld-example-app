@@ -22,8 +22,8 @@
             "assets": [
               "src/favicon.ico",
               {
-                "glob": "*.svg",
-                "input": "realworld/assets/media",
+                "glob": "**/*",
+                "input": "src/assets",
                 "output": "/assets"
               },
               {
@@ -32,7 +32,7 @@
                 "output": "/"
               }
             ],
-            "styles": ["realworld/assets/theme/styles.css"],
+            "styles": ["src/styles.css"],
             "scripts": [],
             "browser": "src/main.ts"
           },
