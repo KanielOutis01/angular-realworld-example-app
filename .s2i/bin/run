@@ -3,6 +3,4 @@ set -e
 
 echo "Starting Angular app"
 
-
-
 npm start
